@@ -66,14 +66,14 @@ jobs:
       
       - name: Start Docker containers
         run: |
-          docker-compose up -d
+          docker compose up -d
           
           # Wait for services to be ready
           echo "Waiting for services to start..."
           sleep 10
           
           # Check if services are running
-          docker-compose ps
+          docker compose ps
       
       - name: Install Drupal
         run: |
@@ -89,13 +89,13 @@ jobs:
         if: failure()
         run: |
           echo "=== Docker Compose Logs ==="
-          docker-compose logs
+          docker compose logs
           
           echo "=== Container Status ==="
-          docker-compose ps
+          docker compose ps
           
           # Save logs to artifacts
-          docker-compose logs > test-results/docker-logs-${{ matrix.drupal-version }}-${{ matrix.variant }}.txt
+          docker compose logs > test-results/docker-logs-${{ matrix.drupal-version }}-${{ matrix.variant }}.txt
       
       - name: Upload test results
         if: always()
@@ -107,4 +107,4 @@ jobs:
       - name: Clean up
         if: always()
         run: |
-          docker-compose down -v
+          docker compose down -v

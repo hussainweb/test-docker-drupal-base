@@ -127,7 +127,7 @@ You can run the tests locally to validate changes before pushing:
 
 5. **Start containers:**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 6. **Install Drupal:**
@@ -149,7 +149,7 @@ You can run the tests locally to validate changes before pushing:
 
 9. **Clean up:**
    ```bash
-   docker-compose down -v
+   docker compose down -v
    rm -rf drupal-root
    ```
 

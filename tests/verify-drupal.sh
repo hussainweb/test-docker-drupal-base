@@ -101,7 +101,7 @@ fi
 
 # Test 5: Check status page via drush
 echo -n "Testing Drupal status via drush... "
-DRUSH_CHECK=$(docker-compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
+DRUSH_CHECK=$(docker compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
 
 if echo "$DRUSH_CHECK" | grep -q "Successful"; then
     echo "✓ PASSED"
@@ -114,7 +114,7 @@ fi
 
 # Test 6: Check PHP version in container
 echo -n "Testing PHP availability... "
-PHP_VERSION=$(docker-compose exec -T $CONTAINER php -v 2>&1 || echo "")
+PHP_VERSION=$(docker compose exec -T $CONTAINER php -v 2>&1 || echo "")
 
 if echo "$PHP_VERSION" | grep -q "PHP"; then
     echo "✓ PASSED"
@@ -131,7 +131,7 @@ REQUIRED_EXTENSIONS="gd pdo pdo_sqlite json opcache"
 MISSING_EXTENSIONS=""
 
 for ext in $REQUIRED_EXTENSIONS; do
-    if ! docker-compose exec -T $CONTAINER php -m | grep -q "^$ext$"; then
+    if ! docker compose exec -T $CONTAINER php -m | grep -q "^$ext$"; then
         MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
     fi
 done
@@ -146,7 +146,7 @@ fi
 
 # Test 8: Check web root permissions
 echo -n "Testing web root is readable... "
-WEB_ROOT_CHECK=$(docker-compose exec -T $CONTAINER sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
+WEB_ROOT_CHECK=$(docker compose exec -T $CONTAINER sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
 
 if [ "$WEB_ROOT_CHECK" = "readable" ]; then
     echo "✓ PASSED"
