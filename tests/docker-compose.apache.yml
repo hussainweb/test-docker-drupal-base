@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  drupal:
+    image: hussainweb/drupal-base:php8.5-apache-trixie
+    container_name: drupal-apache
+    volumes:
+      - ./drupal-root:/var/www/html
+    ports:
+      - "8080:80"
+    environment:
+      # PHP configuration for testing
+      PHP_MEMORY_LIMIT: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,30 @@
+# Drupal codebase (downloaded during tests)
+drupal-root/
+
+# Docker compose override
+docker-compose.yml
+docker-compose.override.yml
+
+# nginx config (copied during tests)
+nginx.conf
+
+# Test results
+test-results/
+
+# Composer
+vendor/
+composer.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

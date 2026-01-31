@@ -1,0 +1,174 @@
+#!/bin/bash
+set -e
+
+VARIANT=$1
+
+echo "===================================="
+echo "Verifying Drupal installation on ${VARIANT}"
+echo "===================================="
+
+# Determine the base URL and container based on variant
+BASE_URL="http://localhost:8080"
+
+if [ "$VARIANT" = "fpm-alpine" ]; then
+    CONTAINER="drupal-fpm"
+elif [ "$VARIANT" = "frankenphp-trixie" ]; then
+    CONTAINER="drupal-frankenphp"
+else
+    CONTAINER="drupal-apache"
+fi
+
+# Wait a bit for services to stabilize
+sleep 3
+
+# Function to test HTTP endpoint
+test_endpoint() {
+    local url=$1
+    local description=$2
+    local expected_code=${3:-200}
+    
+    echo -n "Testing $description... "
+    
+    # Use curl to test the endpoint
+    response=$(curl -s -o /dev/null -w "%{http_code}" -L "$url" 2>&1 || echo "000")
+    
+    if [ "$response" = "$expected_code" ]; then
+        echo "✓ PASSED (HTTP $response)"
+        return 0
+    else
+        echo "✗ FAILED (Expected HTTP $expected_code, got HTTP $response)"
+        return 1
+    fi
+}
+
+# Function to test page content
+test_content() {
+    local url=$1
+    local description=$2
+    local search_term=$3
+    
+    echo -n "Testing $description for '$search_term'... "
+    
+    # Use curl to fetch the page content
+    content=$(curl -s -L "$url" 2>&1 || echo "")
+    
+    if echo "$content" | grep -q "$search_term"; then
+        echo "✓ PASSED"
+        return 0
+    else
+        echo "✗ FAILED (Content not found)"
+        echo "Page content preview:"
+        echo "$content" | head -20
+        return 1
+    fi
+}
+
+# Track test results
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+echo ""
+echo "Running HTTP endpoint tests..."
+echo "--------------------------------"
+
+# Test 1: Homepage returns 200
+if test_endpoint "$BASE_URL" "Homepage"; then
+    ((TESTS_PASSED++))
+else
+    ((TESTS_FAILED++))
+fi
+
+# Test 2: User login page returns 200
+if test_endpoint "$BASE_URL/user/login" "Login page"; then
+    ((TESTS_PASSED++))
+else
+    ((TESTS_FAILED++))
+fi
+
+# Test 3: Admin page (should redirect to login, return 200 after redirect)
+if test_endpoint "$BASE_URL/admin" "Admin page"; then
+    ((TESTS_PASSED++))
+else
+    ((TESTS_FAILED++))
+fi
+
+# Test 4: Check for Drupal meta tag on homepage
+if test_content "$BASE_URL" "Homepage content" "Drupal"; then
+    ((TESTS_PASSED++))
+else
+    ((TESTS_FAILED++))
+fi
+
+# Test 5: Check status page via drush
+echo -n "Testing Drupal status via drush... "
+DRUSH_CHECK=$(docker-compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
+
+if echo "$DRUSH_CHECK" | grep -q "Successful"; then
+    echo "✓ PASSED"
+    ((TESTS_PASSED++))
+else
+    echo "✗ FAILED"
+    echo "Drush output: $DRUSH_CHECK"
+    ((TESTS_FAILED++))
+fi
+
+# Test 6: Check PHP version in container
+echo -n "Testing PHP availability... "
+PHP_VERSION=$(docker-compose exec -T $CONTAINER php -v 2>&1 || echo "")
+
+if echo "$PHP_VERSION" | grep -q "PHP"; then
+    echo "✓ PASSED"
+    echo "   PHP Version: $(echo "$PHP_VERSION" | head -1)"
+    ((TESTS_PASSED++))
+else
+    echo "✗ FAILED"
+    ((TESTS_FAILED++))
+fi
+
+# Test 7: Check required PHP extensions
+echo -n "Testing required PHP extensions... "
+REQUIRED_EXTENSIONS="gd pdo pdo_sqlite json opcache"
+MISSING_EXTENSIONS=""
+
+for ext in $REQUIRED_EXTENSIONS; do
+    if ! docker-compose exec -T $CONTAINER php -m | grep -q "^$ext$"; then
+        MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
+    fi
+done
+
+if [ -z "$MISSING_EXTENSIONS" ]; then
+    echo "✓ PASSED"
+    ((TESTS_PASSED++))
+else
+    echo "✗ FAILED (Missing:$MISSING_EXTENSIONS)"
+    ((TESTS_FAILED++))
+fi
+
+# Test 8: Check web root permissions
+echo -n "Testing web root is readable... "
+WEB_ROOT_CHECK=$(docker-compose exec -T $CONTAINER sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
+
+if [ "$WEB_ROOT_CHECK" = "readable" ]; then
+    echo "✓ PASSED"
+    ((TESTS_PASSED++))
+else
+    echo "✗ FAILED"
+    ((TESTS_FAILED++))
+fi
+
+# Summary
+echo ""
+echo "===================================="
+echo "Test Results Summary"
+echo "===================================="
+echo "Tests passed: $TESTS_PASSED"
+echo "Tests failed: $TESTS_FAILED"
+echo "===================================="
+
+if [ $TESTS_FAILED -eq 0 ]; then
+    echo "✓ All tests passed!"
+    exit 0
+else
+    echo "✗ Some tests failed!"
+    exit 1
+fi

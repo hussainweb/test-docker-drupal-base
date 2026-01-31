@@ -1,0 +1,110 @@
+name: Test Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    # Run tests weekly to catch issues with latest Drupal releases
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  test-drupal:
+    name: Test ${{ matrix.drupal-version }} on ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        drupal-version:
+          - '11.0'
+          - '2.0'  # DrupalCMS 2
+        variant:
+          - apache-trixie
+          - fpm-alpine
+          - frankenphp-trixie
+        php-version:
+          - '8.5'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Create test directory structure
+        run: |
+          mkdir -p drupal-root
+          mkdir -p test-results
+      
+      - name: Download Drupal ${{ matrix.drupal-version }}
+        run: |
+          if [ "${{ matrix.drupal-version }}" = "2.0" ]; then
+            # DrupalCMS 2.0
+            composer create-project drupal/cms:^2.0 drupal-root --no-interaction --no-dev
+          else
+            # Drupal 11
+            composer create-project drupal/recommended-project:^11.0 drupal-root --no-interaction --no-dev
+          fi
+          
+          # Add drush as a dependency
+          cd drupal-root
+          composer require drush/drush --no-interaction
+      
+      - name: Set up docker-compose for ${{ matrix.variant }}
+        run: |
+          if [ "${{ matrix.variant }}" = "fpm-alpine" ]; then
+            cp tests/docker-compose.fpm.yml docker-compose.yml
+            cp tests/nginx.conf nginx.conf
+          elif [ "${{ matrix.variant }}" = "frankenphp-trixie" ]; then
+            cp tests/docker-compose.frankenphp.yml docker-compose.yml
+          else
+            cp tests/docker-compose.apache.yml docker-compose.yml
+          fi
+      
+      - name: Start Docker containers
+        run: |
+          docker-compose up -d
+          
+          # Wait for services to be ready
+          echo "Waiting for services to start..."
+          sleep 10
+          
+          # Check if services are running
+          docker-compose ps
+      
+      - name: Install Drupal
+        run: |
+          chmod +x tests/install-drupal.sh
+          ./tests/install-drupal.sh ${{ matrix.variant }} ${{ matrix.drupal-version }}
+      
+      - name: Run Drupal verification tests
+        run: |
+          chmod +x tests/verify-drupal.sh
+          ./tests/verify-drupal.sh ${{ matrix.variant }}
+      
+      - name: Capture logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Logs ==="
+          docker-compose logs
+          
+          echo "=== Container Status ==="
+          docker-compose ps
+          
+          # Save logs to artifacts
+          docker-compose logs > test-results/docker-logs-${{ matrix.drupal-version }}-${{ matrix.variant }}.txt
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.drupal-version }}-${{ matrix.variant }}
+          path: test-results/
+      
+      - name: Clean up
+        if: always()
+        run: |
+          docker-compose down -v
