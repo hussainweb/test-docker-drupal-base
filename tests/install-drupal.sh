@@ -8,21 +8,28 @@ echo "===================================="
 echo "Installing Drupal ${DRUPAL_VERSION} on ${VARIANT}"
 echo "===================================="
 
-# Determine the container name based on variant
-if [ "$VARIANT" = "fpm-alpine" ]; then
-    CONTAINER="drupal-fpm"
-elif [ "$VARIANT" = "frankenphp-trixie" ]; then
-    CONTAINER="drupal-frankenphp"
-else
-    CONTAINER="drupal-apache"
-fi
+# Use service name instead of container name
+SERVICE="drupal"
 
-# Wait for the container to be fully ready
+# Wait for the container to be fully ready with health checks
 echo "Waiting for container to be ready..."
-sleep 5
+for i in {1..12}; do
+    if docker compose exec -T $SERVICE sh -c 'exit 0' 2>/dev/null; then
+        echo "Container is ready!"
+        break
+    fi
+    if [ $i -eq 12 ]; then
+        echo "Container failed to become ready after 60 seconds"
+        docker compose ps
+        docker compose logs
+        exit 1
+    fi
+    echo "Waiting for container... ($i/12)"
+    sleep 5
+done
 
 # Check if Drupal is already installed
-INSTALLED=$(docker compose exec -T $CONTAINER sh -c 'if [ -f /var/www/html/web/sites/default/settings.php ] && grep -q "database" /var/www/html/web/sites/default/settings.php 2>/dev/null; then echo "yes"; else echo "no"; fi' || echo "no")
+INSTALLED=$(docker compose exec -T $SERVICE sh -c 'if [ -f /var/www/html/web/sites/default/settings.php ] && grep -q "database" /var/www/html/web/sites/default/settings.php 2>/dev/null; then echo "yes"; else echo "no"; fi' || echo "no")
 
 if [ "$INSTALLED" = "yes" ]; then
     echo "Drupal appears to be already installed. Skipping installation."
@@ -31,12 +38,12 @@ fi
 
 # Set proper permissions
 echo "Setting up permissions..."
-docker compose exec -T $CONTAINER sh -c 'mkdir -p /var/www/html/web/sites/default/files && chmod -R 777 /var/www/html/web/sites/default/files'
-docker compose exec -T $CONTAINER sh -c 'chmod 777 /var/www/html/web/sites/default'
+docker compose exec -T $SERVICE sh -c 'mkdir -p /var/www/html/web/sites/default/files && chmod -R 777 /var/www/html/web/sites/default/files'
+docker compose exec -T $SERVICE sh -c 'chmod 777 /var/www/html/web/sites/default'
 
 # Install Drupal using drush with SQLite
 echo "Installing Drupal using drush..."
-docker compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush site:install minimal \
+docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush site:install minimal \
     --db-url=sqlite://sites/default/files/.ht.sqlite \
     --site-name="Drupal Test Site" \
     --account-name=admin \
@@ -46,7 +53,7 @@ docker compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush si
 
 # Verify installation
 echo "Verifying Drupal installation..."
-DRUSH_STATUS=$(docker compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush status --format=json' || echo "{}")
+DRUSH_STATUS=$(docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush status --format=json' || echo "{}")
 
 echo "Drush status output:"
 echo "$DRUSH_STATUS"
@@ -61,7 +68,7 @@ fi
 
 # Set permissions back to safer values
 echo "Securing permissions..."
-docker compose exec -T $CONTAINER sh -c 'chmod 555 /var/www/html/web/sites/default'
+docker compose exec -T $SERVICE sh -c 'chmod 555 /var/www/html/web/sites/default'
 
 echo "===================================="
 echo "Drupal installation complete"

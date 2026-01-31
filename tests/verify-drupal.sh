@@ -7,16 +7,9 @@ echo "===================================="
 echo "Verifying Drupal installation on ${VARIANT}"
 echo "===================================="
 
-# Determine the base URL and container based on variant
+# Determine the base URL and use service name
 BASE_URL="http://localhost:8080"
-
-if [ "$VARIANT" = "fpm-alpine" ]; then
-    CONTAINER="drupal-fpm"
-elif [ "$VARIANT" = "frankenphp-trixie" ]; then
-    CONTAINER="drupal-frankenphp"
-else
-    CONTAINER="drupal-apache"
-fi
+SERVICE="drupal"
 
 # Wait a bit for services to stabilize
 sleep 3
@@ -101,7 +94,7 @@ fi
 
 # Test 5: Check status page via drush
 echo -n "Testing Drupal status via drush... "
-DRUSH_CHECK=$(docker compose exec -T $CONTAINER sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
+DRUSH_CHECK=$(docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
 
 if echo "$DRUSH_CHECK" | grep -q "Successful"; then
     echo "✓ PASSED"
@@ -114,7 +107,7 @@ fi
 
 # Test 6: Check PHP version in container
 echo -n "Testing PHP availability... "
-PHP_VERSION=$(docker compose exec -T $CONTAINER php -v 2>&1 || echo "")
+PHP_VERSION=$(docker compose exec -T $SERVICE php -v 2>&1 || echo "")
 
 if echo "$PHP_VERSION" | grep -q "PHP"; then
     echo "✓ PASSED"
@@ -131,7 +124,7 @@ REQUIRED_EXTENSIONS="gd pdo pdo_sqlite json opcache"
 MISSING_EXTENSIONS=""
 
 for ext in $REQUIRED_EXTENSIONS; do
-    if ! docker compose exec -T $CONTAINER php -m | grep -q "^$ext$"; then
+    if ! docker compose exec -T $SERVICE php -m | grep -q "^$ext$"; then
         MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
     fi
 done
@@ -146,7 +139,7 @@ fi
 
 # Test 8: Check web root permissions
 echo -n "Testing web root is readable... "
-WEB_ROOT_CHECK=$(docker compose exec -T $CONTAINER sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
+WEB_ROOT_CHECK=$(docker compose exec -T $SERVICE sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
 
 if [ "$WEB_ROOT_CHECK" = "readable" ]; then
     echo "✓ PASSED"
