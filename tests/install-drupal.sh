@@ -66,9 +66,14 @@ else
     exit 1
 fi
 
-# Set permissions back to safer values
+# Set permissions back to safer values but keep files directory writable
 echo "Securing permissions..."
-docker compose exec -T $SERVICE sh -c 'chmod 555 /var/www/html/web/sites/default'
+# sites/default needs to be readable and executable (755) so web server can access files inside
+docker compose exec -T $SERVICE sh -c 'chmod 755 /var/www/html/web/sites/default'
+# Keep files directory writable for the web server (for SQLite and uploaded files)
+docker compose exec -T $SERVICE sh -c 'chmod 775 /var/www/html/web/sites/default/files'
+# Ensure SQLite database is writable
+docker compose exec -T $SERVICE sh -c 'chmod 664 /var/www/html/web/sites/default/files/.ht.sqlite 2>/dev/null || true'
 
 echo "===================================="
 echo "Drupal installation complete"
