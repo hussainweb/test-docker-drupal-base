@@ -92,6 +92,13 @@ else
     echo ""
     echo "--- Checking SQLite database permissions ---"
     docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/.ht.sqlite* 2>/dev/null' || true
+    echo ""
+    echo "--- Checking PHP modules loaded via web server ---"
+    docker compose exec -T $SERVICE sh -c 'echo "<?php echo implode(\\"\\n\\", get_loaded_extensions()); ?>" > /var/www/html/web/check_modules.php' || true
+    curl -s "$BASE_URL/check_modules.php" 2>&1 | grep -iE "(pdo|sqlite|opcache)" || echo "PDO/SQLite modules not found via web server"
+    echo ""
+    echo "--- Checking PHP modules via CLI (for comparison) ---"
+    docker compose exec -T $SERVICE sh -c 'php -m | grep -iE "(pdo|sqlite|opcache)"' || true
     echo "=== END DEBUGGING ==="
     echo ""
 fi
