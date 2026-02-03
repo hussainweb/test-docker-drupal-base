@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+# Don't use set -e so we can run debugging on test failures
+set +e
 
 VARIANT=$1
 
