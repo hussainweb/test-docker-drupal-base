@@ -44,7 +44,7 @@ docker compose exec -T $SERVICE sh -c 'chmod 777 /var/www/html/web/sites/default
 # Install Drupal using drush with in-memory SQLite
 echo "Installing Drupal using drush with in-memory SQLite..."
 docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush site:install minimal \
-    --db-url="sqlite://:memory:?module=sqlite" \
+    --db-url="sqlite://localhost/:memory:" \
     --site-name="Drupal Test Site" \
     --account-name=admin \
     --account-pass=admin \
