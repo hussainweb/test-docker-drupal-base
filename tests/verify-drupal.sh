@@ -78,6 +78,12 @@ else
     echo "--- Checking file permissions ---"
     docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/' || true
     echo ""
+    echo "--- Checking web server user ---"
+    docker compose exec -T $SERVICE sh -c 'ps aux | grep -E "(apache|httpd|nginx|php-fpm|frankenphp)" | grep -v grep | head -5' || true
+    echo ""
+    echo "--- Checking if web server user can write to files directory ---"
+    docker compose exec -T $SERVICE sh -c 'su -s /bin/sh www-data -c "touch /var/www/html/web/sites/default/files/test-write.txt && rm /var/www/html/web/sites/default/files/test-write.txt && echo \"Write test: SUCCESS\"" 2>&1 || su -s /bin/sh apache -c "touch /var/www/html/web/sites/default/files/test-write.txt && rm /var/www/html/web/sites/default/files/test-write.txt && echo \"Write test: SUCCESS\"" 2>&1 || echo "Write test: FAILED"' || true
+    echo ""
     echo "--- Checking PHP error log (last 50 lines) ---"
     docker compose exec -T $SERVICE sh -c 'tail -50 /var/log/apache2/error.log 2>/dev/null || tail -50 /var/log/php-fpm/error.log 2>/dev/null || tail -50 /var/log/php8/error.log 2>/dev/null || echo "Could not find PHP error log"' || true
     echo ""
