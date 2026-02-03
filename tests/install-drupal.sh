@@ -41,10 +41,10 @@ echo "Setting up permissions..."
 docker compose exec -T $SERVICE sh -c 'mkdir -p /var/www/html/web/sites/default/files && chmod -R 777 /var/www/html/web/sites/default/files'
 docker compose exec -T $SERVICE sh -c 'chmod 777 /var/www/html/web/sites/default'
 
-# Install Drupal using drush with SQLite
-echo "Installing Drupal using drush..."
+# Install Drupal using drush with in-memory SQLite
+echo "Installing Drupal using drush with in-memory SQLite..."
 docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush site:install minimal \
-    --db-url=sqlite://sites/default/files/.ht.sqlite \
+    --db-url="sqlite://:memory:?module=sqlite" \
     --site-name="Drupal Test Site" \
     --account-name=admin \
     --account-pass=admin \

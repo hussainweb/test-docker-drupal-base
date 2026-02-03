@@ -100,8 +100,17 @@ else
     docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/.ht.sqlite* 2>/dev/null' || true
     echo ""
     echo "--- Checking PHP modules loaded via web server ---"
-    docker compose exec -T $SERVICE sh -c 'echo "<?php echo implode(\\"\\n\\", get_loaded_extensions()); ?>" > /var/www/html/web/check_modules.php' || true
-    curl -s "$BASE_URL/check_modules.php" 2>&1 | grep -iE "(pdo|sqlite|opcache)" || echo "PDO/SQLite modules not found via web server"
+    docker compose exec -T $SERVICE sh -c 'cat > /var/www/html/web/check_modules.php <<"PHPEOF"
+<?php
+header("Content-Type: text/plain");
+echo "Loaded PHP Extensions:\\n";
+foreach (get_loaded_extensions() as \$ext) {
+    echo \$ext . "\\n";
+}
+PHPEOF
+' || true
+    echo "Modules from web server:"
+    curl -s "$BASE_URL/check_modules.php" 2>&1 | head -50
     echo ""
     echo "--- Checking PHP modules via CLI (for comparison) ---"
     docker compose exec -T $SERVICE sh -c 'php -m | grep -iE "(pdo|sqlite|opcache)"' || true
