@@ -69,6 +69,30 @@ if test_endpoint "$BASE_URL" "Homepage"; then
     ((TESTS_PASSED++))
 else
     ((TESTS_FAILED++))
+    echo ""
+    echo "=== DEBUGGING HTTP 500 ERROR ==="
+    echo "--- Fetching page content with error details ---"
+    curl -v "$BASE_URL" 2>&1 | head -50
+    echo ""
+    echo "--- Checking file permissions ---"
+    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/' || true
+    echo ""
+    echo "--- Checking PHP error log (last 50 lines) ---"
+    docker compose exec -T $SERVICE sh -c 'tail -50 /var/log/apache2/error.log 2>/dev/null || tail -50 /var/log/php-fpm/error.log 2>/dev/null || tail -50 /var/log/php8/error.log 2>/dev/null || echo "Could not find PHP error log"' || true
+    echo ""
+    echo "--- Checking Apache/Nginx error log (last 50 lines) ---"
+    docker compose exec -T $SERVICE sh -c 'tail -50 /var/log/apache2/error.log 2>/dev/null || tail -50 /var/log/nginx/error.log 2>/dev/null || echo "Could not find web server error log"' || true
+    echo ""
+    echo "--- Checking Drupal logs directory ---"
+    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/ 2>/dev/null | head -20' || true
+    echo ""
+    echo "--- Checking Drupal watchdog errors ---"
+    docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush watchdog:show --severity=Error --count=10 2>&1' || true
+    echo ""
+    echo "--- Checking SQLite database permissions ---"
+    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/.ht.sqlite* 2>/dev/null' || true
+    echo "=== END DEBUGGING ==="
+    echo ""
 fi
 
 # Test 2: User login page returns 200
