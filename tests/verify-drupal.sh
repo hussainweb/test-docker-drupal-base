@@ -107,15 +107,7 @@ else
     docker compose exec -T $SERVICE sh -c "ls -la ${WEBROOT}/web/sites/default/files/.ht.sqlite* 2>/dev/null" || true
     echo ""
     echo "--- Checking PHP modules loaded via web server ---"
-    docker compose exec -T $SERVICE sh -c "cat > ${WEBROOT}/web/check_modules.php <<'PHPEOF'
-<?php
-header("Content-Type: text/plain");
-echo "Loaded PHP Extensions:\\n";
-foreach (get_loaded_extensions() as \$ext) {
-    echo \$ext . "\\n";
-}
-PHPEOF
-' || true
+    docker compose exec -T $SERVICE sh -c "echo '<?php header(\"Content-Type: text/plain\"); foreach (get_loaded_extensions() as \$ext) { echo \$ext . \"\\n\"; }' > ${WEBROOT}/web/check_modules.php" || true
     echo "Modules from web server:"
     curl -s "$BASE_URL/check_modules.php" 2>&1 | head -50
     echo ""
