@@ -125,10 +125,14 @@ else
     ((TESTS_FAILED++))
 fi
 
-# Test 3: Admin page (should redirect to login, return 200 after redirect)
-if test_endpoint "$BASE_URL/admin" "Admin page"; then
+# Test 3: Admin page (should redirect to login with 200, or return 403 for unauthorized)
+echo -n "Testing Admin page... "
+ADMIN_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -L "$BASE_URL/admin" 2>&1 || echo "000")
+if [ "$ADMIN_RESPONSE" = "200" ] || [ "$ADMIN_RESPONSE" = "403" ]; then
+    echo "✓ PASSED (HTTP $ADMIN_RESPONSE)"
     ((TESTS_PASSED++))
 else
+    echo "✗ FAILED (Expected HTTP 200 or 403, got HTTP $ADMIN_RESPONSE)"
     ((TESTS_FAILED++))
 fi
 
@@ -171,7 +175,12 @@ REQUIRED_EXTENSIONS="gd pdo pdo_sqlite json opcache"
 MISSING_EXTENSIONS=""
 
 for ext in $REQUIRED_EXTENSIONS; do
-    if ! docker compose exec -T $SERVICE php -m | grep -q "^$ext$"; then
+    # Use case-insensitive matching and handle "Zend OPcache" naming
+    if [ "$ext" = "opcache" ]; then
+        if ! docker compose exec -T $SERVICE php -m | grep -qi "opcache"; then
+            MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
+        fi
+    elif ! docker compose exec -T $SERVICE php -m | grep -qi "^$ext$"; then
         MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
     fi
 done
