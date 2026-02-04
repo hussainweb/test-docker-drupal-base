@@ -6,7 +6,7 @@ docker-compose.yml
 docker-compose.override.yml
 
 # nginx config (copied during tests)
-nginx.conf
+/nginx.conf
 
 # Test results
 test-results/
