@@ -11,6 +11,13 @@ echo "===================================="
 # Use service name instead of container name
 SERVICE="drupal"
 
+# Set the web root path based on variant
+if [[ "$VARIANT" == *"frankenphp"* ]]; then
+    WEBROOT="/app"
+else
+    WEBROOT="/var/www/html"
+fi
+
 # Wait for the container to be fully ready with health checks
 echo "Waiting for container to be ready..."
 for i in {1..12}; do
@@ -29,7 +36,7 @@ for i in {1..12}; do
 done
 
 # Check if Drupal is already installed
-INSTALLED=$(docker compose exec -T $SERVICE sh -c 'if [ -f /var/www/html/web/sites/default/settings.php ] && grep -q "database" /var/www/html/web/sites/default/settings.php 2>/dev/null; then echo "yes"; else echo "no"; fi' || echo "no")
+INSTALLED=$(docker compose exec -T $SERVICE sh -c "if [ -f ${WEBROOT}/web/sites/default/settings.php ] && grep -q 'database' ${WEBROOT}/web/sites/default/settings.php 2>/dev/null; then echo 'yes'; else echo 'no'; fi" || echo "no")
 
 if [ "$INSTALLED" = "yes" ]; then
     echo "Drupal appears to be already installed. Skipping installation."
@@ -38,22 +45,22 @@ fi
 
 # Set proper permissions
 echo "Setting up permissions..."
-docker compose exec -T $SERVICE sh -c 'mkdir -p /var/www/html/web/sites/default/files && chmod -R 777 /var/www/html/web/sites/default/files'
-docker compose exec -T $SERVICE sh -c 'chmod 777 /var/www/html/web/sites/default'
+docker compose exec -T $SERVICE sh -c "mkdir -p ${WEBROOT}/web/sites/default/files && chmod -R 777 ${WEBROOT}/web/sites/default/files"
+docker compose exec -T $SERVICE sh -c "chmod 777 ${WEBROOT}/web/sites/default"
 
 # Install Drupal using drush with SQLite database file
 echo "Installing Drupal using drush with SQLite..."
-docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush site:install minimal \
+docker compose exec -T $SERVICE sh -c "cd ${WEBROOT} && vendor/bin/drush site:install minimal \
     --db-url="sqlite://localhost/sites/default/files/.ht.sqlite" \
     --site-name="Drupal Test Site" \
     --account-name=admin \
     --account-pass=admin \
     --yes \
-    --no-interaction'
+    --no-interaction"
 
 # Verify installation
 echo "Verifying Drupal installation..."
-DRUSH_STATUS=$(docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush status --format=json' || echo "{}")
+DRUSH_STATUS=$(docker compose exec -T $SERVICE sh -c "cd ${WEBROOT} && vendor/bin/drush status --format=json" || echo "{}")
 
 echo "Drush status output:"
 echo "$DRUSH_STATUS"
@@ -69,9 +76,9 @@ fi
 # Set permissions back to safer values but keep files directory writable
 echo "Securing permissions..."
 # sites/default should not be writable by web server (755)
-docker compose exec -T $SERVICE sh -c 'chmod 755 /var/www/html/web/sites/default'
+docker compose exec -T $SERVICE sh -c "chmod 755 ${WEBROOT}/web/sites/default"
 # Keep files directory fully writable (777) for testing - SQLite needs directory write access
-docker compose exec -T $SERVICE sh -c 'chmod -R 777 /var/www/html/web/sites/default/files'
+docker compose exec -T $SERVICE sh -c "chmod -R 777 ${WEBROOT}/web/sites/default/files"
 
 echo "===================================="
 echo "Drupal installation complete"

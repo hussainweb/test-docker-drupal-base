@@ -3,14 +3,12 @@ services:
     image: hussainweb/drupal-base:php8.5-frankenphp-trixie
     container_name: drupal-frankenphp
     volumes:
-      - ./drupal-root:/var/www/html
+      - ./drupal-root:/app
     ports:
       - "8080:80"
     environment:
       # PHP configuration for testing
       PHP_MEMORY_LIMIT: 512M
-      # FrankenPHP specific settings
-      FRANKENPHP_CONFIG: "worker ./public/index.php"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]

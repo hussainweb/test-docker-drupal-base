@@ -12,6 +12,13 @@ echo "===================================="
 BASE_URL="http://localhost:8080"
 SERVICE="drupal"
 
+# Set the web root path based on variant
+if [[ "$VARIANT" == *"frankenphp"* ]]; then
+    WEBROOT="/app"
+else
+    WEBROOT="/var/www/html"
+fi
+
 # Wait a bit for services to stabilize
 sleep 3
 
@@ -76,13 +83,13 @@ else
     curl -v "$BASE_URL" 2>&1 | head -50
     echo ""
     echo "--- Checking file permissions ---"
-    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/' || true
+    docker compose exec -T $SERVICE sh -c "ls -la ${WEBROOT}/web/sites/default/files/" || true
     echo ""
     echo "--- Checking web server user ---"
     docker compose exec -T $SERVICE sh -c 'ps aux | grep -E "(apache|httpd|nginx|php-fpm|frankenphp)" | grep -v grep | head -5' || true
     echo ""
     echo "--- Checking if web server user can write to files directory ---"
-    docker compose exec -T $SERVICE sh -c 'su -s /bin/sh www-data -c "touch /var/www/html/web/sites/default/files/test-write.txt && rm /var/www/html/web/sites/default/files/test-write.txt && echo \"Write test: SUCCESS\"" 2>&1 || su -s /bin/sh apache -c "touch /var/www/html/web/sites/default/files/test-write.txt && rm /var/www/html/web/sites/default/files/test-write.txt && echo \"Write test: SUCCESS\"" 2>&1 || echo "Write test: FAILED"' || true
+    docker compose exec -T $SERVICE sh -c "su -s /bin/sh www-data -c 'touch ${WEBROOT}/web/sites/default/files/test-write.txt && rm ${WEBROOT}/web/sites/default/files/test-write.txt && echo Write_test:_SUCCESS' 2>&1 || su -s /bin/sh apache -c 'touch ${WEBROOT}/web/sites/default/files/test-write.txt && rm ${WEBROOT}/web/sites/default/files/test-write.txt && echo Write_test:_SUCCESS' 2>&1 || echo Write_test:_FAILED" || true
     echo ""
     echo "--- Checking PHP error log (last 50 lines) ---"
     docker compose exec -T $SERVICE sh -c 'tail -50 /var/log/apache2/error.log 2>/dev/null || tail -50 /var/log/php-fpm/error.log 2>/dev/null || tail -50 /var/log/php8/error.log 2>/dev/null || echo "Could not find PHP error log"' || true
@@ -91,16 +98,16 @@ else
     docker compose exec -T $SERVICE sh -c 'tail -50 /var/log/apache2/error.log 2>/dev/null || tail -50 /var/log/nginx/error.log 2>/dev/null || echo "Could not find web server error log"' || true
     echo ""
     echo "--- Checking Drupal logs directory ---"
-    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/ 2>/dev/null | head -20' || true
+    docker compose exec -T $SERVICE sh -c "ls -la ${WEBROOT}/web/sites/default/files/ 2>/dev/null | head -20" || true
     echo ""
     echo "--- Checking Drupal watchdog errors ---"
-    docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush watchdog:show --severity=Error --count=10 2>&1' || true
+    docker compose exec -T $SERVICE sh -c "cd ${WEBROOT} && vendor/bin/drush watchdog:show --severity=Error --count=10 2>&1" || true
     echo ""
     echo "--- Checking SQLite database permissions ---"
-    docker compose exec -T $SERVICE sh -c 'ls -la /var/www/html/web/sites/default/files/.ht.sqlite* 2>/dev/null' || true
+    docker compose exec -T $SERVICE sh -c "ls -la ${WEBROOT}/web/sites/default/files/.ht.sqlite* 2>/dev/null" || true
     echo ""
     echo "--- Checking PHP modules loaded via web server ---"
-    docker compose exec -T $SERVICE sh -c 'cat > /var/www/html/web/check_modules.php <<"PHPEOF"
+    docker compose exec -T $SERVICE sh -c "cat > ${WEBROOT}/web/check_modules.php <<'PHPEOF'
 <?php
 header("Content-Type: text/plain");
 echo "Loaded PHP Extensions:\\n";
@@ -145,7 +152,7 @@ fi
 
 # Test 5: Check status page via drush
 echo -n "Testing Drupal status via drush... "
-DRUSH_CHECK=$(docker compose exec -T $SERVICE sh -c 'cd /var/www/html && vendor/bin/drush status --fields=bootstrap 2>&1' || echo "")
+DRUSH_CHECK=$(docker compose exec -T $SERVICE sh -c "cd ${WEBROOT} && vendor/bin/drush status --fields=bootstrap 2>&1" || echo "")
 
 if echo "$DRUSH_CHECK" | grep -q "Successful"; then
     echo "✓ PASSED"
@@ -195,7 +202,7 @@ fi
 
 # Test 8: Check web root permissions
 echo -n "Testing web root is readable... "
-WEB_ROOT_CHECK=$(docker compose exec -T $SERVICE sh -c 'test -r /var/www/html/web/index.php && echo "readable"' || echo "")
+WEB_ROOT_CHECK=$(docker compose exec -T $SERVICE sh -c "test -r ${WEBROOT}/web/index.php && echo readable" || echo "")
 
 if [ "$WEB_ROOT_CHECK" = "readable" ]; then
     echo "✓ PASSED"
