@@ -25,6 +25,10 @@ The test suite covers the following matrix:
   - `fpm-alpine` - PHP-FPM on Alpine Linux (with nginx)
   - `frankenphp-trixie` - FrankenPHP on Debian Trixie
 
+- **Architectures:**
+  - `linux/amd64` - on `ubuntu-24.04` runners
+  - `linux/arm64` - on `ubuntu-24.04-arm` runners
+
 ### Test Architecture
 
 #### 1. GitHub Actions Workflow
@@ -36,7 +40,7 @@ The testing is automated using GitHub Actions (`.github/workflows/test-images.ym
 - **Weekly schedule** - Catches issues with latest Drupal releases
 - **Manual dispatch** - On-demand testing
 
-The workflow uses a matrix strategy to test all combinations of Drupal versions and image variants in parallel.
+The workflow uses a matrix strategy to test all combinations of Drupal versions, image variants, and architectures in parallel. amd64 cells run on `ubuntu-24.04` runners and arm64 cells on `ubuntu-24.04-arm`; Docker resolves the right per-arch manifest from the multi-arch `hussainweb/drupal-base:php8.5-*` tags based on the runner's architecture.
 
 #### 2. Docker Compose Stacks
 
@@ -170,7 +174,7 @@ The verification suite includes 8 comprehensive tests:
 
 GitHub Actions automatically runs these tests for every push and pull request. Test results and logs are available as artifacts in the Actions tab.
 
-**Matrix Testing:** Each combination of Drupal version and image variant is tested independently, resulting in 6 test jobs per run (2 Drupal versions × 3 variants).
+**Matrix Testing:** Each combination of Drupal version, image variant, and architecture is tested independently, resulting in 12 test jobs per run (2 Drupal versions × 3 variants × 2 architectures).
 
 ### Why This Testing Strategy?
 
