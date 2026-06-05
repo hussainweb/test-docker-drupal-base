@@ -16,8 +16,8 @@ concurrency:
 
 jobs:
   test-drupal:
-    name: Test ${{ matrix.drupal-version }} on ${{ matrix.variant }}
-    runs-on: ubuntu-latest
+    name: Test ${{ matrix.drupal-version }} on ${{ matrix.variant }} (${{ matrix.arch.name }})
+    runs-on: ${{ matrix.arch.runs_on }}
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +30,11 @@ jobs:
           - frankenphp-trixie
         php-version:
           - '8.5'
+        # Test both architectures so we cover the native arm64 leg of
+        # the multi-arch tags published by docker-drupal-base.
+        arch:
+          - { name: amd64, runs_on: ubuntu-24.04 }
+          - { name: arm64, runs_on: ubuntu-24.04-arm }
     
     steps:
       - name: Checkout code
@@ -99,13 +104,13 @@ jobs:
           docker compose ps
           
           # Save logs to artifacts
-          docker compose logs > test-results/docker-logs-${{ matrix.drupal-version }}-${{ matrix.variant }}.txt
+          docker compose logs > test-results/docker-logs-${{ matrix.drupal-version }}-${{ matrix.variant }}-${{ matrix.arch.name }}.txt
       
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.drupal-version }}-${{ matrix.variant }}
+          name: test-results-${{ matrix.drupal-version }}-${{ matrix.variant }}-${{ matrix.arch.name }}
           path: test-results/
       
       - name: Clean up
